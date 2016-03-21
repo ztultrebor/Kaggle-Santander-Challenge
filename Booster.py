@@ -76,13 +76,13 @@ training_data = training_data.drop(dupes,1)
 test_data = test_data.drop(dupes,1)
 '''
 
-from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.cross_validation import KFold
 from sklearn.metrics import roc_auc_score
 from sklearn.svm import SVC
 
-n_estimators = 64
-booster = AdaBoostClassifier(n_estimators=n_estimators)
+n_estimators = 128
+booster = GradientBoostingClassifier(n_estimators=n_estimators)
 
 booster.fit(X_train,y_train)
 
@@ -96,11 +96,10 @@ for i, (train, val) in enumerate(cv):
 print scores
 print "AuC-ROC: %0.5f (+/- %0.5f) with %s boosts" % (scores.mean(), scores.std() * 2, n_estimators)
 
-'''
+
 booster.fit(X_train,y_train)
 
 results = pd.DataFrame({'TARGET':booster.predict_proba(X_test)[:,1]}, index=test_data['ID'])
 print results
 
 results.to_csv('submission.csv')
-'''
