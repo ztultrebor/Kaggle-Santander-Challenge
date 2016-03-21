@@ -58,11 +58,10 @@ X_test = X_test[original_and_best]
 
 print X_train.shape
 
-
-
-
+'PCA with leading garbage removal'
 from sklearn.decomposition import PCA
-pca = PCA(n_components=128, whiten=True).fit(X_train)
+n_components =  X_train.shape[1]
+pca = PCA(n_components=n_components, whiten=True).fit(X_train)
 explained_variance_list = pca.explained_variance_ratio_
 leading_garbage = sum([var > 0.0001 for var in explained_variance_list])
 print leading_garbage
@@ -71,14 +70,15 @@ print sum(pca.explained_variance_ratio_)
 X_train = pd.DataFrame(pca.transform(X_train)[:,leading_garbage:], index=X_train.index)
 X_test = pd.DataFrame(pca.transform(X_test)[:,leading_garbage:], index=X_test.index)
 
-
+# Boosting
 from sklearn.ensemble import AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.cross_validation import KFold
 from sklearn.metrics import roc_auc_score
 from sklearn.svm import SVC
 
-n_estimators = 128
-booster = GradientBoostingClassifier(n_estimators=n_estimators)
+n_estimators = 500
+learning_rate = 10./n_estimators
+booster = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate)
 
 booster.fit(X_train,y_train)
 
@@ -93,7 +93,7 @@ print scores
 print "AuC-ROC: %0.5f (+/- %0.5f) with %s boosts" % (scores.mean(),
             scores.std() * 2, n_estimators)
 
-'''
+# Export results
 booster.fit(X_train,y_train)
 
 results = pd.DataFrame({'TARGET':booster.predict_proba(X_test)[:,1]},
@@ -101,4 +101,3 @@ results = pd.DataFrame({'TARGET':booster.predict_proba(X_test)[:,1]},
 print results
 
 results.to_csv('submission.csv')
-'''
