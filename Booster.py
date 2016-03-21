@@ -58,23 +58,19 @@ X_test = X_test[original_and_best]
 
 print X_train.shape
 
-'''
-#remove duplicate columns
-dupes = set()
-feature_cols = training_data.columns[1:-1]
-l = feature_cols.shape[0]
-for i in xrange(l):
-    i_val_train = training_data[feature_cols[i]].values
-    i_val_test = test_data[feature_cols[i]].values
-    for j in xrange(i+1, l):
-        j_val_train = training_data[feature_cols[j]].values
-        j_val_test = test_data[feature_cols[j]].values
-        if not ((i_val_train - j_val_train).any()
-                or (i_val_test - j_val_test).any()):
-            dupes = dupes | set([feature_cols[j]])
-training_data = training_data.drop(dupes,1)
-test_data = test_data.drop(dupes,1)
-'''
+
+
+
+from sklearn.decomposition import PCA
+pca = PCA(n_components=128, whiten=True).fit(X_train)
+explained_variance_list = pca.explained_variance_ratio_
+leading_garbage = sum([var > 0.0001 for var in explained_variance_list])
+print leading_garbage
+print sum(pca.explained_variance_ratio_)
+
+X_train = pd.DataFrame(pca.transform(X_train)[:,leading_garbage:], index=X_train.index)
+X_test = pd.DataFrame(pca.transform(X_test)[:,leading_garbage:], index=X_test.index)
+
 
 from sklearn.ensemble import AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.cross_validation import KFold
@@ -94,12 +90,15 @@ for i, (train, val) in enumerate(cv):
     scores[i] = roc_auc_score(y_train.iloc[val],
             booster.predict_proba(X_train.iloc[val])[:,1])
 print scores
-print "AuC-ROC: %0.5f (+/- %0.5f) with %s boosts" % (scores.mean(), scores.std() * 2, n_estimators)
+print "AuC-ROC: %0.5f (+/- %0.5f) with %s boosts" % (scores.mean(),
+            scores.std() * 2, n_estimators)
 
-
+'''
 booster.fit(X_train,y_train)
 
-results = pd.DataFrame({'TARGET':booster.predict_proba(X_test)[:,1]}, index=test_data['ID'])
+results = pd.DataFrame({'TARGET':booster.predict_proba(X_test)[:,1]},
+            index=test_data['ID'])
 print results
 
 results.to_csv('submission.csv')
+'''
