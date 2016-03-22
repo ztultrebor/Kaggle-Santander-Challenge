@@ -111,7 +111,7 @@ for i, (train, val) in enumerate(cv):
     scores[i] = roc_auc_score(y_train.iloc[val],
             booster.predict_proba(X_train.iloc[val])[:,1])
 print scores
-print "AuC-ROC: %0.5f (+/- %0.5f) with %s boosts" % (scores.mean(),
+print "AuC-ROC: %0.6f (+/- %0.6f) with %s boosts" % (scores.mean(),
             scores.std() * 2, n_estimators)
 
 # Export results
