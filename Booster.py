@@ -13,6 +13,7 @@ target_col = training_data.columns[-1]
 group_size = training_data[training_data['TARGET']==1].shape[0]
 
 #randomize training data for balancing selection
+np.random.seed(49)
 training_data = training_data.reindex(
         np.random.permutation(training_data.index))
 
@@ -40,6 +41,7 @@ empties = tr_std_list[tr_std_list==0].index | t_std_list[t_std_list==0].index
 X_train = X_train.drop(empties,1)
 X_test = X_test.drop(empties,1)
 
+
 print X_train.shape
 
 #remove duplicate columns
@@ -58,17 +60,23 @@ X_test = X_test[original_and_best]
 
 print X_train.shape
 
-'PCA with leading garbage removal'
-from sklearn.decomposition import PCA
-n_components =  X_train.shape[1]
-pca = PCA(n_components=n_components, whiten=True).fit(X_train)
-explained_variance_list = pca.explained_variance_ratio_
-leading_garbage = sum([var > 0.0001 for var in explained_variance_list])
-print leading_garbage
-print sum(pca.explained_variance_ratio_)
+#PCA with leading garbage removal
+from sklearn.decomposition import PCA, FastICA
+n_components = 79 #X_train.shape[1]
+# 77 --> 0.79531 - best std
 
-X_train = pd.DataFrame(pca.transform(X_train)[:,leading_garbage:], index=X_train.index)
-X_test = pd.DataFrame(pca.transform(X_test)[:,leading_garbage:], index=X_test.index)
+#pca = PCA(n_components=n_components, whiten=True).fit(X_train)
+#explained_variance_list = pca.explained_variance_ratio_
+#leading_garbage = sum([var > 0.0001 for var in explained_variance_list])
+#print leading_garbage
+#print sum(pca.explained_variance_ratio_)
+#X_train = pd.DataFrame(pca.transform(X_train)[:,leading_garbage:], index=X_train.index)
+#X_test = pd.DataFrame(pca.transform(X_test)[:,leading_garbage:], index=X_test.index)
+
+
+ica = FastICA(n_components=n_components, whiten=True).fit(X_train)
+X_train = pd.DataFrame(ica.transform(X_train), index=X_train.index)
+X_test = pd.DataFrame(ica.transform(X_test), index=X_test.index)
 
 # Boosting
 from sklearn.ensemble import AdaBoostClassifier, GradientBoostingClassifier
@@ -76,11 +84,24 @@ from sklearn.cross_validation import KFold
 from sklearn.metrics import roc_auc_score
 from sklearn.svm import SVC
 
-n_estimators = 500
+n_estimators = 128
+# 1   --> 0.79803
+# 2   --> 0.35091
+# 4   --> 0.37338
+# 8   --> 0.80409
+# 16  --> 0.82264
+# 32  --> 0.82846
+# 64  --> 0.82951
+# 128 --> 0.83485
+# 256 --> 0.83254
+# continue optimization
+
 learning_rate = 10./n_estimators
 booster = GradientBoostingClassifier(n_estimators=n_estimators, learning_rate=learning_rate)
 
 booster.fit(X_train,y_train)
+
+# cross validation
 
 n_folds = 10
 scores = np.zeros(n_folds)
