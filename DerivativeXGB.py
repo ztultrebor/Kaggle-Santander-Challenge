@@ -80,6 +80,37 @@ n_components = 55 #X_train.shape[1]
 
 pca = PCA(n_components=n_components, whiten=True).fit(X_train)
 explained_variance_list = pca.explained_variance_ratio_
+for col in feature_cols:
+    if ((tr_mean_list[col], tr_std_list[col]) not in tr_mean_std_combo and
+            (t_mean_list[col], t_std_list[col]) not in t_mean_std_combo):
+        tr_mean_std_combo.add((tr_mean_list[col], tr_std_list[col]))
+        t_mean_std_combo.add((t_mean_list[col], t_std_list[col]))
+        original_and_best.append(col)
+X_train, y_train = df_train[original_and_best], df_train[target]
+test_ids, X_test = df_test['ID'], df_test[original_and_best]
+X_train_leftover, y_train_leftover = df_train_leftover[original_and_best], df_train_leftover[target]
+print X_train.shape
+
+
+# ICA
+from sklearn.decomposition import FastICA, PCA
+n_components = 55 #X_train.shape[1]
+# 32  --> 0.809800
+# 48  --> 0.827763
+# 52  --> 0.825215
+# 54  --> 0.832112
+# 55  --> 0.851113
+# 56  --> 0.854735
+# 64  --> 0.891491
+# 128 --> 0.919729
+#ica = FastICA(n_components=n_components, whiten=True).fit(X_train)
+#X_train = pd.DataFrame(ica.transform(X_train), index=X_train.index)
+#X_test = pd.DataFrame(ica.transform(X_test), index=X_test.index)
+#X_train_leftover = pd.DataFrame(ica.transform(X_train_leftover),
+#        index=X_train_leftover.index)
+
+pca = PCA(n_components=n_components, whiten=True).fit(X_train)
+explained_variance_list = pca.explained_variance_ratio_
 leading_garbage = sum([var > 0.0001 for var in explained_variance_list])
 print leading_garbage
 #print sum(pca.explained_variance_ratio_)
@@ -106,7 +137,7 @@ booster = XGBClassifier(
 
 X_fit, X_eval, y_fit, y_eval = train_test_split(X_train, y_train, test_size=0.1)
 # fitting
-booster.fit(X_train, y_train, early_stopping_rounds=20, eval_metric="auc",
+booster.fit(X_fit, y_fit, early_stopping_rounds=20, eval_metric="auc",
         eval_set=[(pd.concat([X_eval,X_train_leftover]), pd.concat([y_eval,
         y_train_leftover]))])
 
