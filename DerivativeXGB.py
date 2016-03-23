@@ -62,28 +62,39 @@ print X_train.shape
 
 
 # ICA
-from sklearn.decomposition import FastICA
-n_components = 159 #X_train.shape[1]
-ica = FastICA(n_components=n_components, whiten=True).fit(X_train)
-X_train = pd.DataFrame(ica.transform(X_train), index=X_train.index)
-X_test = pd.DataFrame(ica.transform(X_test), index=X_test.index)
-X_train_leftover = pd.DataFrame(ica.transform(X_train_leftover),
+from sklearn.decomposition import FastICA, PCA
+n_components = 55 #X_train.shape[1]
+# 32  --> 0.809800
+# 48  --> 0.827763
+# 52  --> 0.825215
+# 54  --> 0.832112
+# 55  --> 0.851113
+# 56  --> 0.854735
+# 64  --> 0.891491
+# 128 --> 0.919729
+#ica = FastICA(n_components=n_components, whiten=True).fit(X_train)
+#X_train = pd.DataFrame(ica.transform(X_train), index=X_train.index)
+#X_test = pd.DataFrame(ica.transform(X_test), index=X_test.index)
+#X_train_leftover = pd.DataFrame(ica.transform(X_train_leftover),
+#        index=X_train_leftover.index)
+
+pca = PCA(n_components=n_components, whiten=True).fit(X_train)
+explained_variance_list = pca.explained_variance_ratio_
+leading_garbage = sum([var > 0.0001 for var in explained_variance_list])
+print leading_garbage
+#print sum(pca.explained_variance_ratio_)
+X_train = pd.DataFrame(pca.transform(X_train)[:,leading_garbage:],
+        index=X_train.index)
+X_test = pd.DataFrame(pca.transform(X_test)[:,leading_garbage:],
+        index=X_test.index)
+X_train_leftover = pd.DataFrame(
+        pca.transform(X_train_leftover)[:,leading_garbage:],
         index=X_train_leftover.index)
-
-
-# length of dataset
-len_train = len(X_train)
-len_test  = len(X_test)
 
 # booster
 n_estimators = 5000
 learning_rate = 0.03
-max_depth = 5
-# 20 --> 0.935724
-# 21 --> 0.937867
-# 22 --> 0.937640
-# 23 --> 0.937870
-# 24 --> 0.937238
+max_depth = 3 #5
 
 
 booster = XGBClassifier(
@@ -103,9 +114,9 @@ print('Training AUC:', roc_auc_score(pd.concat([y_train, y_train_leftover]),
         booster.predict_proba(pd.concat([X_train,X_train_leftover]))[:,1]))
 
 # predicting
-y_pred= booster.predict_proba(X_test)[:,1]
+#y_pred= booster.predict_proba(X_test)[:,1]
 
-submission = pd.DataFrame({target:y_pred}, index=test_ids)
-submission.to_csv('submission.csv')
+#submission = pd.DataFrame({target:y_pred}, index=test_ids)
+#submission.to_csv('submission.csv')
 
 print('Completed!')
