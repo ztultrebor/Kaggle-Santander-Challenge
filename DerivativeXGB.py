@@ -1,7 +1,3 @@
-# This Python 3 environment comes with many helpful analytics libraries installed
-# It is defined by the kaggle/python docker image: https://github.com/kaggle/docker-python
-# For example, here's several helpful packages to load in
-#from __future__ import division
 import numpy as np
 import pandas as pd
 from xgboost import XGBClassifier
@@ -50,14 +46,11 @@ print df_train.shape
 #==============================BALANCING======================================
 
 group_size = 7500 #df_train[df_train[target_col]==1].shape[0]
-# 3008  --> 0.820340
-# 5000  --> 0.843972
-# 6000  --> 0.824637
-# 7000  --> 0.844002
-# 7500  --> 0.845161
-# 8000  --> 0.838604
-# 10000 --> 0.829360
-# 73000 --> 0.815607
+
+# 6000  --> 0.835164
+# 7500  --> 0.836402
+# 8000  --> 0.835164
+
 
 #randomize training data for balancing selection
 np.random.seed(49)
@@ -76,52 +69,28 @@ test_ids, X_test = df_test['ID'], df_test[original_and_best]
 X_train_leftover, y_train_leftover = (df_train_leftover[original_and_best],
         df_train_leftover[target_col])
 
-#============================PCA/ICA===========================================
-
-
-# ICA
-from sklearn.decomposition import FastICA, PCA
-n_components = 159 #X_train.shape[1]
-
-#noCA  --> 0.845161
-
-#PCA
-# 64  --> 0.765077
-# 128 --> 0.829819
-# 256 --> 0.836884; 0.835054 (garbage removal is good)
-# 297 --> 0.835623
-
-#ICA
-# 64  --> 0.633220
-# 128 --> 0.817453
-# 159 --> 0.804441
-
-
-ica = FastICA(n_components=n_components).fit(X_train)
-X_train = pd.DataFrame(ica.transform(X_train), index=X_train.index)
-X_test = pd.DataFrame(ica.transform(X_test), index=X_test.index)
-X_train_leftover = pd.DataFrame(ica.transform(X_train_leftover),
-        index=X_train_leftover.index)
-
-#pca = PCA(n_components=n_components, whiten=True).fit(X_train)
-#explained_variance_list = pca.explained_variance_ratio_
-#leading_garbage = sum([var > 0.0001 for var in explained_variance_list])
-#print leading_garbage
-#print sum(pca.explained_variance_ratio_)
-#X_train = pd.DataFrame(pca.transform(X_train)[:,leading_garbage:],
-#        index=X_train.index)
-#X_test = pd.DataFrame(pca.transform(X_test)[:,leading_garbage:],
-#        index=X_test.index)
-#X_train_leftover = pd.DataFrame(
-#        pca.transform(X_train_leftover)[:,leading_garbage:],
-#        index=X_train_leftover.index)
-
-
 # booster
 n_estimators = 5000
 learning_rate = 0.01
 max_depth = 5
-subsample = 0.8 #0.95
+subsample = 0.8
+
+#subsample
+# 0.75 --> 0.834454
+# 0.8  --> 0.836402
+# 0.85 --> 0.835547
+
+#max_depth
+# 4 --> 0.836088
+# 5 --> 0.836402 !!!!!
+# 6 --> 0.836031
+
+#LR
+# 0.005  --> 0.829291
+# 0.0075 --> 0.836299
+# 0.01   --> 0.836402 !!!!!
+# 0.02   --> 0.835804
+# 0.03   --> 0.835786
 
 booster = XGBClassifier(
         n_estimators=n_estimators,
@@ -130,7 +99,7 @@ booster = XGBClassifier(
         subsample=subsample,
         colsample_bytree=0.85)
 
-X_fit, X_eval, y_fit, y_eval = train_test_split(X_train, y_train, test_size=0.1)
+X_fit, X_eval, y_fit, y_eval = train_test_split(X_train, y_train, test_size=0.3)
 # fitting
 booster.fit(X_fit, y_fit, early_stopping_rounds=20, eval_metric="auc",
         eval_set=[(pd.concat([X_eval,X_train_leftover]), pd.concat([y_eval,
