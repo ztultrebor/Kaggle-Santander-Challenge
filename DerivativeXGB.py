@@ -80,30 +80,19 @@ X_train_leftover, y_train_leftover = (df_train_leftover[original_and_best],
 n_estimators = 5000
 learning_rate = 0.01
 max_depth = 5
-subsample = 0.8
+subsample = 0.6925
 
 #subsample
-# 0.75 --> 0.834454
-# 0.79 --> 0.836193
-# 0.8  --> 0.836402 !!!!!
-# 0.81 --> 0.836216
-# 0.85 --> 0.835547
+# 0.6    --> 0.838182
+# 0.68   --> 0.838461
+# 0.69   --> 0.838850
+# 0.6925 --> 0.838851 !!!!!
+# 0.695  --> 0.838843
+# 0.7    --> 0.838730
+# 0.71   --> 0.838365
+# 0.75   --> 0.838247
+# 0.8    --> 0.838386
 
-#max_depth
-# 4 --> 0.836088
-# 5 --> 0.836402 !!!!!
-# 6 --> 0.836031
-
-#LR
-# 0.005  --> 0.829291
-# 0.0075 --> 0.836299
-# 0.009  --> 0.833399
-# 0.01   --> 0.836402 !!!!!
-# 0.011  --> 0.835882
-# 0.012  --> 0.835856
-# 0.015  --> 0.835703
-# 0.02   --> 0.835804
-# 0.03   --> 0.835786
 
 booster = XGBClassifier(
         n_estimators=n_estimators,
@@ -117,9 +106,6 @@ X_fit, X_eval, y_fit, y_eval = train_test_split(X_train, y_train, test_size=0.3)
 booster.fit(X_fit, y_fit, early_stopping_rounds=20, eval_metric="auc",
         eval_set=[(pd.concat([X_eval,X_train_leftover]), pd.concat([y_eval,
         y_train_leftover]))])
-
-#print('Training AUC:', roc_auc_score(pd.concat([y_train, y_train_leftover]),
-#        booster.predict_proba(pd.concat([X_train,X_train_leftover]))[:,1]))
 
 # predicting
 y_pred= booster.predict_proba(X_test)[:,1]
