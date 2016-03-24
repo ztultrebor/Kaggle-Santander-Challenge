@@ -81,6 +81,20 @@ n_estimators = 5000
 learning_rate = 0.01
 max_depth = 5
 subsample = 0.6925
+CSBT = 0.898
+
+#CSBT
+# 0.7  --> 0.834016
+# 0.8  --> 0.835028
+# 0.85 --> 0.838851
+# 0.88 --> 0.838734
+# 0.89 --> 0.838952
+# 0.895 -->0.839068
+# 0.897 -->0.839220
+# 0.898 -->0.839220 !!!!!!
+# 0.9  --> 0.838978
+# 0.91 --> 0.838496
+# 0.95 --> 0.838826
 
 #subsample
 # 0.6    --> 0.838182
@@ -99,7 +113,7 @@ booster = XGBClassifier(
         learning_rate=learning_rate,
         max_depth=max_depth,
         subsample=subsample,
-        colsample_bytree=0.85)
+        colsample_bytree=CSBT)
 
 X_fit, X_eval, y_fit, y_eval = train_test_split(X_train, y_train, test_size=0.3)
 # fitting
