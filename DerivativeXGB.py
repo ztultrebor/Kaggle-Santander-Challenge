@@ -1,3 +1,6 @@
+#!/usr/bin/env python2.7
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import pandas as pd
 from xgboost import XGBClassifier
@@ -49,7 +52,7 @@ group_size = 7610 #df_train[df_train[target_col]==1].shape[0]
 
 
 #randomize training data for balancing selection
-np.random.seed(58)  #58-->0.853680
+np.random.seed(49)
 
 df_train = df_train.reindex(
         np.random.permutation(df_train.index))
@@ -87,7 +90,7 @@ booster.fit(X_fit, y_fit, early_stopping_rounds=20, eval_metric="auc",
         y_train_leftover]))])
 
 # predicting
-y_pred= booster.predict_proba(X_test)[:,1]
+y_pred = booster.predict_proba(X_test)[:,1]
 
 submission = pd.DataFrame({target_col:y_pred}, index=test_ids)
 submission.to_csv('submission.csv')
