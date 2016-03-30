@@ -11,7 +11,8 @@ def load_data(train_file, test_file):
         train_file: the test csv data filename
     What it does:
         makes use of the pandas read_csv method to convert the csv data to
-        pandas dataframes--one for the training data ad one for the test data-- then returns them
+        pandas dataframes--one for the training data ad one for the test data--
+        then returns them
         '''
     return pd.read_csv(train_file), pd.read_csv(test_file)
 
@@ -31,16 +32,18 @@ def zap_empties(train, test):
     empties = sd[sd==0.0].index
     return train.drop(empties,1), test.drop(empties,1)
 
-def zap_dependencies(train, test):
+def zap_dependencies(train, test, verbose):
     '''
     Takes as input:
         train: the training factor data in the form a pandas DataFrame
         test: the test factor data in the form a pandas DataFrame
+        verbose: if TRUE then prints out dependent column names
     What it does:
         Converts the training factor data to a numpy matrix then performs a QR
         decomposition on it. Dependent columns are identified as all those that
         do not have pivots (i.e., are within a certain tolerence of zero where
-        the pivot should be). These columns are then removed from the training and test factor data, which are returned
+        the pivot should be). These columns are then removed from the training
+        and test factor data, which are returned
     '''
     dependencies = []
     feature_cols = train.columns
@@ -60,6 +63,7 @@ def import_data(train_file, test_file, target_col, id_col, verbose=False):
         test: the test data in the form a pandas DataFrame
         target_col: the name of the target (output) column
         id_col: the name of the ID column
+        verbose: fed to zyp_dependencies function
     What it does:
         Calls upon helper functions to read in and manipulate data. Splits
         the train and test data into X and y groupings and returns them.
