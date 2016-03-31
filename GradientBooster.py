@@ -26,7 +26,6 @@ best_gb, best_hyperparams, best_gb_auc = GridSearch(
                         classifier      =       clf,
                         paramdict       =       params,
                         iters           =       25,
-                        crsval          =       kfcv,
                         X               =       X_train,
                         y               =       y_train
             )
