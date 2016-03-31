@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.cross:validation import StratifiedKFold
 from sklearn.grid_search import RandomizedSearchCV
 
-def GridSearch(classifier, paramdict, iters, crsval, X, y):
+def GridSearch(classifier, paramdict, iters, X, y):
     '''
     Takes as input:
         classifier: the sklearn classifier to investigate
@@ -22,7 +22,7 @@ def GridSearch(classifier, paramdict, iters, crsval, X, y):
     '''
     np.random.seed(42)
     kfcv = StratifiedKFold(y_train, n_folds=5, shuffle=True)
-    gs = RandomizedSearchCV(classifier, paramdict, n_iter=iters, cv=crsval,
+    gs = RandomizedSearchCV(classifier, paramdict, n_iter=iters, cv=kfcv,
                             scoring='roc_auc')
     gs.fit(X, y)
     return gs.best_estimator_, gs.best_params_, gs.best_score_
