@@ -21,7 +21,7 @@ def GridSearch(classifier, paramdict, iters, X, y):
         hyperparameters, and the best ROC-AuC score
     '''
     np.random.seed(42)
-    kfcv = StratifiedKFold(y_train, n_folds=5, shuffle=True)
+    kfcv = StratifiedKFold(y, n_folds=5, shuffle=True)
     gs = RandomizedSearchCV(classifier, paramdict, n_iter=iters, cv=kfcv,
                             scoring='roc_auc')
     gs.fit(X, y)
