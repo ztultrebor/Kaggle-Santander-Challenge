@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from sklearn.cross:validation import StratifiedKFold
+from sklearn.cross_validation import StratifiedKFold
 from sklearn.grid_search import RandomizedSearchCV
 
 def GridSearch(classifier, paramdict, iters, X, y):
@@ -18,7 +18,7 @@ def GridSearch(classifier, paramdict, iters, X, y):
     What it does:
         makes use of the scikit-learn randomized search cross validation
         object. Returns the best estimator fit to the input data, a list of its
-        hyperparemeters, and the best ROC-AuC score
+        hyperparameters, and the best ROC-AuC score
     '''
     np.random.seed(42)
     kfcv = StratifiedKFold(y_train, n_folds=5, shuffle=True)
