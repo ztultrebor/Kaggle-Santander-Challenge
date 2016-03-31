@@ -3,6 +3,7 @@ from GridSearch import GridSearch
 import numpy as np
 import pandas as pd
 import scipy
+from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingClassifier
 
 #===================================prep data==================================
