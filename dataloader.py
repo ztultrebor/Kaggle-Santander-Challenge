@@ -11,8 +11,10 @@ def load_data(train_file, test_file):
         train_file: the test csv data filename
     What it does:
         makes use of the pandas read_csv method to convert the csv data to
-        pandas dataframes--one for the training data ad one for the test data--
-        then returns them
+        pandas dataframes
+    Returns:
+        training data DataFrame
+        test data DataFrame
         '''
     return pd.read_csv(train_file), pd.read_csv(test_file)
 
@@ -25,8 +27,10 @@ def zap_empties(train, test):
         finds all columns in the training factor data where the standard
         deviation is zero. This implies those columns are constant in the
         training factor data and therefore cannot be used for learning. The
-        columns are removed from both the training and test factor data, which
-        are returned
+        columns are removed from both the training and test factor data
+    Returns:
+        training data DataFrame
+        test data DataFrame
         '''
     sd = train.std()
     empties = sd[sd==0.0].index
@@ -43,7 +47,10 @@ def zap_dependencies(train, test, verbose):
         decomposition on it. Dependent columns are identified as all those that
         do not have pivots (i.e., are within a certain tolerence of zero where
         the pivot should be). These columns are then removed from the training
-        and test factor data, which are returned
+        and test factor data
+    Returns:
+        training data DataFrame
+        test data DataFrame
     '''
     dependencies = []
     feature_cols = train.columns
@@ -66,7 +73,12 @@ def import_data(train_file, test_file, target_col, id_col, verbose=False):
         verbose: fed to zyp_dependencies function
     What it does:
         Calls upon helper functions to read in and manipulate data. Splits
-        the train and test data into X and y groupings and returns them.
+        the train and test data into X and y groupings
+    Returns:
+        training data features
+        training data labels
+        test data features
+        test data IDs
     '''
     df_train, df_test = load_data(train_file, test_file)
     feature_cols = df_train.columns.difference([target_col, id_col])

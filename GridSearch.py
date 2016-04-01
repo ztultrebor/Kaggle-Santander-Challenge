@@ -16,9 +16,12 @@ def GridSearch(classifier, paramdict, iters, X, y):
         X: the training data
         y: the target or labels
     What it does:
-        makes use of the scikit-learn randomized search cross validation
-        object. Returns the best estimator fit to the input data, a list of its
-        hyperparameters, and the best ROC-AuC score
+        acts as a convenent wrapper function for the scikit-learn randomized
+        search cross validation method
+    Returns:
+        the best estimator object
+        dictionary of hyperparemeters for the best estimator
+        the ROC-AuC score for the best estimator
     '''
     np.random.seed(42)
     kfcv = StratifiedKFold(y, n_folds=5, shuffle=True)
