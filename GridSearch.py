@@ -46,6 +46,8 @@ def GridSearch(classifier, paramdict, iters, X, y, X_reserve, y_reserve):
             classifier.C = paramdict['C'].rvs()
         if 'gamma' in paramdict:
             classifier.gamma = paramdict['gamma'].rvs()
+        if 'colsample_bytree' in paramdict:
+            classifier.colsample_bytree = paramdict['colsample_bytree'].rvs()
         scores = []
         for fit, val in kfcv:
             classifier.fit(X.iloc[fit], y.iloc[fit])
