@@ -63,7 +63,35 @@ def zap_dependencies(train, test, verbose):
                 print col
     return train.drop(dependencies,1), test.drop(dependencies,1)
 
-def import_data(train_file, test_file, target_col, id_col, verbose=False):
+def num_to_card(train, test, frac0=0.5):
+    '''
+    Takes as input:
+        train: the training factor data in the form a pandas DataFrame
+        test: the test factor data in the form a pandas DataFrame
+        frac0: the fraction of values that are 0 in a feature colums
+    What it does:
+        Determines the fraction of values in a data column that are equal to
+        zero. If this fraction is higher than that given by frac0, then all
+        positive values are set to 1 and all negative values to -1
+    Why are we doing this?
+        It seems that many of the columns are mostly zero. This seems to imply
+        that the fact that a value is other than zero is more important than
+        the quantitative value itself.
+    Returns:
+        training data DataFrame
+        test data DataFrame
+    '''
+    feature_cols = train.columns
+    points = train.shape[0]
+    for col in feature_cols:
+        if (train[col]==0).sum() > 0.5*points:
+            train.loc[train[col]>0, col] = 1
+            train.loc[train[col]<0, col] = -1
+            test.loc[test[col]>0, col] = 1
+            test.loc[test[col]<0, col] = -1
+    return train, test
+
+def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     '''
     Takes as input:
         train: the training data in the form a pandas DataFrame
@@ -86,4 +114,14 @@ def import_data(train_file, test_file, target_col, id_col, verbose=False):
     X_test, id_test = df_test[feature_cols], df_test[id_col]
     X_train, X_test = zap_empties(X_train, X_test)
     X_train, X_test = zap_dependencies(X_train, X_test, verbose)
+    X_train, X_test = num_to_card(X_train, X_test)
+    X_train, X_test = zap_dependencies(X_train, X_test, verbose)
     return X_train, y_train, X_test, id_test
+
+X_train, y_train, X_test, id_test = acquire_data('train.csv', 'test.csv',
+                                    'TARGET', 'ID', verbose=True)
+
+X_train.to_csv('./EngineeredData/Xtrain.csv')
+y_train.to_csv('./EngineeredData/ytrain.csv')
+X_test.to_csv('./EngineeredData/Xtest.csv')
+id_test.to_csv('./EngineeredData/idtest.csv')
