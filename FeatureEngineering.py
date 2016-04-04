@@ -110,18 +110,25 @@ def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     '''
     df_train, df_test = load_data(train_file, test_file)
     feature_cols = df_train.columns.difference([target_col, id_col])
-    X_train, y_train = df_train[feature_cols], df_train[target_col]
-    X_test, id_test = df_test[feature_cols], df_test[id_col]
+    y_train = df_train[target_col]
+    id_test = df_test[id_col]
+    X_train, X_test = df_train[feature_cols], df_test[feature_cols]
     X_train, X_test = zap_empties(X_train, X_test)
     X_train, X_test = zap_dependencies(X_train, X_test, verbose)
     X_train, X_test = num_to_card(X_train, X_test)
     X_train, X_test = zap_dependencies(X_train, X_test, verbose)
     return X_train, y_train, X_test, id_test
 
-X_train, y_train, X_test, id_test = acquire_data('train.csv', 'test.csv',
-                                    'TARGET', 'ID', verbose=True)
 
-X_train.to_csv('./EngineeredData/Xtrain.csv')
-y_train.to_csv('./EngineeredData/ytrain.csv')
-X_test.to_csv('./EngineeredData/Xtest.csv')
-id_test.to_csv('./EngineeredData/idtest.csv')
+target_col = 'TARGET'
+id_col = 'ID'
+
+X_train, y_train, X_test, id_test = acquire_data('train.csv', 'test.csv',
+                                    target_col, id_col, verbose=True)
+
+X_train.to_csv('./EngineeredData/Xtrain.csv', index=False)
+pd.DataFrame({target_col:y_train}).to_csv('./EngineeredData/ytrain.csv',
+                index=False)
+X_test.to_csv('./EngineeredData/Xtest.csv', index=False)
+pd.DataFrame({id_col:id_test}).to_csv('./EngineeredData/idtest.csv',
+                index=False)
