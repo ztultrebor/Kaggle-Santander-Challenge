@@ -1,64 +1,46 @@
 #!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 
-from dataloader import import_data
 import numpy as np
 import pandas as pd
 from xgboost import XGBClassifier
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import roc_auc_score
 
+np.random.seed(42)
 
-X_train, y_train, X_test, id_test = import_data('train.csv', 'test.csv', 'TARGET', 'ID', verbose=True)
+target_col = 'TARGET'
+id_col = 'ID'
 
+X_train = pd.read_csv('./EngineeredData/Xtrain.csv')
+y_train = pd.read_csv('./EngineeredData/ytrain.csv')[target_col]
+X_test = pd.read_csv('./EngineeredData/Xtest.csv')
+id_test = pd.read_csv('./EngineeredData/idtest.csv')[id_col]
 
-#==============================BALANCING======================================
-
-group_size = 7610 #df_train[df_train[target_col]==1].shape[0]
-
-
-#randomize training data for balancing selection
-np.random.seed(49)
-
-df_train = df_train.reindex(
-        np.random.permutation(df_train.index))
-
-#balance the training data
-df_train_leftover = df_train[df_train[target_col]==0][group_size:]
-df_train = pd.concat(
-        [df_train[df_train[target_col]==1][:group_size],
-        df_train[df_train[target_col]==0][:group_size]])
-
-X_train, y_train = df_train[original_and_best], df_train[target_col]
-test_ids, X_test = df_test['ID'], df_test[original_and_best]
-X_train_leftover, y_train_leftover = (df_train_leftover[original_and_best],
-        df_train_leftover[target_col])
+print X_train.shape
+print y_train.shape
 
 # booster
 n_estimators = 5000
-learning_rate = 0.01
-max_depth = 5
-subsample = 0.6925
-CSBT = 0.898
-
+learning_rate = 0.0380
+max_depth = 4
+subsample = 0.847
 
 booster = XGBClassifier(
         n_estimators=n_estimators,
         learning_rate=learning_rate,
         max_depth=max_depth,
-        subsample=subsample,
-        colsample_bytree=CSBT)
+        subsample=subsample)
 
-X_fit, X_eval, y_fit, y_eval = train_test_split(X_train, y_train, test_size=0.3)
-# fitting
-booster.fit(X_fit, y_fit, early_stopping_rounds=20, eval_metric="auc",
-        eval_set=[(pd.concat([X_eval,X_train_leftover]), pd.concat([y_eval,
-        y_train_leftover]))])
+X_fit, X_val, y_fit, y_val = train_test_split(X_train, y_train,
+                                    test_size=0.3, stratify=y_train)
+
+booster.fit(X_fit, y_fit, early_stopping_rounds=30, eval_metric="auc", eval_set=[(X_val, y_val)])
 
 # predicting
 y_pred = booster.predict_proba(X_test)[:,1]
 
-submission = pd.DataFrame({target_col:y_pred}, index=test_ids)
+submission = pd.DataFrame({target_col:y_pred}, index=id_test)
 submission.to_csv('submission.csv')
 
 print('Completed!')
