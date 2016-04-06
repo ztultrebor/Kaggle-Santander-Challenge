@@ -96,6 +96,23 @@ def num_to_card(train, test, frac0=0.5):
             test.loc[test[col]<0, col] = -1
     return train, test
 
+def eigenstuff(train, test):
+    '''
+    Takes as input:
+        train: the training factor data in the form a pandas DataFrame
+        test: the test factor data in the form a pandas DataFrame
+    What it does:
+        performs a principal components analysis on the data. It does no
+        filtering, just transforms the data into its eigenvectors
+    Returns:
+        training data DataFrame
+        test data DataFrame
+    '''
+    np.random.seed(42)
+    n = min(train.shape)
+    pca = PCA(n_components=n).fit(train)
+    return pd.DataFrame(pca.transform(train)), pd.DataFrame(pca.transform(test))
+    
 def cull_features(train, labels, test):
     '''
     Takes as input:
