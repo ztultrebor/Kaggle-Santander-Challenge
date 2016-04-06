@@ -3,6 +3,11 @@
 
 import numpy as np
 import pandas as pd
+from sklearn.feature_selection import RFECV
+from sklearn.cross_validation import StratifiedKFold
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.decomposition import PCA
+
 
 def load_data(train_file, test_file):
     '''
@@ -91,6 +96,35 @@ def num_to_card(train, test, frac0=0.5):
             test.loc[test[col]<0, col] = -1
     return train, test
 
+def cull_features(train, labels, test):
+    '''
+    Takes as input:
+        train: the training factor data in the form a pandas DataFrame
+        labels: the labels in the form a pandas Series(?)
+        test: the test factor data in the form a pandas DataFrame
+    What it does:
+        Runs recursive feature elimination cross validation on the training
+        data. Wrapped around a gradient boostng classifier. Scored with ROC-AuC
+    Returns:
+        training data DataFrame
+        test data DataFrame
+    '''
+    np.random.seed(42)
+    kfcv = StratifiedKFold(labels, n_folds=5, shuffle=True)
+    clf = GradientBoostingClassifier(
+                n_estimators      =       150,
+                subsample         =       0.9,
+                learning_rate     =       0.03,
+                max_depth         =       5,
+                min_samples_leaf  =       10
+        )
+    eliminator = RFECV(
+                            estimator           =   clf,
+                            cv                  =   kfcv,
+                            scoring             =   'roc_auc'
+    )
+    return eliminator.fit_transform(train, labels), eliminator.transform(test)
+
 def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     '''
     Takes as input:
@@ -98,7 +132,7 @@ def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
         test: the test data in the form a pandas DataFrame
         target_col: the name of the target (output) column
         id_col: the name of the ID column
-        verbose: fed to zyp_dependencies function
+        verbose: fed to zap_dependencies function
     What it does:
         Calls upon helper functions to read in and manipulate data. Splits
         the train and test data into X and y groupings
@@ -113,10 +147,17 @@ def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     y_train = df_train[target_col]
     id_test = df_test[id_col]
     X_train, X_test = df_train[feature_cols], df_test[feature_cols]
+    if verbose:
+        print X_train.shape, X_test.shape
     X_train, X_test = zap_empties(X_train, X_test)
+    if verbose:
+        print X_train.shape, X_test.shape
     X_train, X_test = zap_dependencies(X_train, X_test, verbose)
-    X_train, X_test = num_to_card(X_train, X_test)
-    X_train, X_test = zap_dependencies(X_train, X_test, verbose)
+    if verbose:
+        print X_train.shape, X_test.shape
+    X_train, X_test = eigenstuff(X_train, X_test)
+    if verbose:
+        print X_train.shape, X_test.shape
     return X_train, y_train, X_test, id_test
 
 
