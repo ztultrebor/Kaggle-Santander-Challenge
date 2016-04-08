@@ -5,8 +5,9 @@ import numpy as np
 import pandas as pd
 from sklearn.feature_selection import RFECV
 from sklearn.cross_validation import StratifiedKFold
-from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.decomposition import PCA
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
 
 
 def load_data(train_file, test_file):
@@ -41,7 +42,7 @@ def zap_empties(train, test):
     empties = sd[sd==0.0].index
     return train.drop(empties,1), test.drop(empties,1)
 
-def zap_dependencies(train, test, verbose):
+def zap_dependencies(train, test, verbose=False):
     '''
     Takes as input:
         train: the training factor data in the form a pandas DataFrame
@@ -109,10 +110,17 @@ def eigenstuff(train, test):
         test data DataFrame
     '''
     np.random.seed(42)
-    n = min(train.shape)
-    pca = PCA(n_components=n).fit(train)
-    return pd.DataFrame(pca.transform(train)), pd.DataFrame(pca.transform(test))
-    
+    med = train.median()
+    zeros = med[med==0].index
+    nonzeros = train.columns.difference(zeros)
+    n = min(nonzeros.shape)
+    pca = PCA(n_components=n).fit(train[nonzeros])
+    train = pd.concat([train[zeros],
+            pd.DataFrame(pca.transform(train[nonzeros]))], axis=1)
+    test = pd.concat([test[zeros],
+            pd.DataFrame(pca.transform(test[nonzeros]))], axis=1)
+    return train, test
+
 def cull_features(train, labels, test):
     '''
     Takes as input:
@@ -120,27 +128,57 @@ def cull_features(train, labels, test):
         labels: the labels in the form a pandas Series(?)
         test: the test factor data in the form a pandas DataFrame
     What it does:
-        Runs recursive feature elimination cross validation on the training
-        data. Wrapped around a gradient boostng classifier. Scored with ROC-AuC
+        RUses SelectFromModel with ExtraTreesClassifier to perform feature
+        selection
     Returns:
         training data DataFrame
         test data DataFrame
     '''
     np.random.seed(42)
-    kfcv = StratifiedKFold(labels, n_folds=5, shuffle=True)
-    clf = GradientBoostingClassifier(
-                n_estimators      =       150,
-                subsample         =       0.9,
-                learning_rate     =       0.03,
-                max_depth         =       5,
-                min_samples_leaf  =       10
-        )
-    eliminator = RFECV(
-                            estimator           =   clf,
-                            cv                  =   kfcv,
-                            scoring             =   'roc_auc'
-    )
-    return eliminator.fit_transform(train, labels), eliminator.transform(test)
+    clf = ExtraTreesClassifier()
+    clf.fit(train, labels)
+    model = SelectFromModel(clf, prefit=True)
+    return (pd.DataFrame(model.transform(train)),
+            pd.DataFrame(model.transform(test)))
+
+def mediate(train, test):
+    '''
+    Takes as input:
+        train: the training factor data in the form a pandas DataFrame
+        test: the test factor data in the form a pandas DataFrame
+    What it does:
+        Sets all zero values to the median value of the feature column
+    Returns:
+        training data DataFrame
+        test data DataFrame
+    '''
+    np.random.seed(42)
+    for col in train.columns:
+        median = train[col].median()
+        if median != 0:
+            train.loc[train[col]==0, col] = median
+            test.loc[train[col]==0, col] = median
+    return train, test
+
+def crossify(X_train, y_train, X_test):
+    columns = X_train.columns
+    X_train_crossed = pd.DataFrame()
+    X_test_crossed = pd.DataFrame()
+    for col1 in columns:
+        for col2 in columns:
+            X_train_crossed = pd.concat([X_train_crossed,
+                X_train[col1]*X_train[col2]], axis=1)
+            X_test_crossed = pd.concat([X_test_crossed,
+                X_test[col1]*X_test[col2]], axis=1)
+    X_train_crossed, X_test_crossed = zap_empties(X_train_crossed,
+                                        X_test_crossed)
+    X_train_crossed, X_test_crossed = zap_dependencies(X_train_crossed,
+                                        X_test_crossed)
+    X_train_crossed, X_test_crossed = cull_features(X_train_crossed,
+                                                y_train, X_test_crossed)
+    X_train = pd.concat([X_train, X_train_crossed], axis=1)
+    X_test = pd.concat([X_test, X_test_crossed], axis=1)
+    return X_train, X_test
 
 def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     '''
@@ -172,7 +210,12 @@ def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     X_train, X_test = zap_dependencies(X_train, X_test, verbose)
     if verbose:
         print X_train.shape, X_test.shape
-    X_train, X_test = eigenstuff(X_train, X_test)
+    #X_train, X_test = mediate(X_train, X_test)
+    #X_train, X_test = eigenstuff(X_train, X_test)
+    #X_train, X_test = cull_features(X_train, y_train, X_test)
+    if verbose:
+        print X_train.shape, X_test.shape
+    #X_train, X_test = crossify(X_train, y_train, X_test)
     if verbose:
         print X_train.shape, X_test.shape
     return X_train, y_train, X_test, id_test
