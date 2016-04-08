@@ -5,10 +5,11 @@ import numpy as np
 import pandas as pd
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.grid_search import RandomizedSearchCV
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, f1_score, r2_score
 
 
-def GridSearch(classifier, paramdict, iters, X, y, X_reserve, y_reserve):
+def GridSearch(classifier, paramdict, iters, X, y, scoring='roc_auc',
+                proba=True):
     '''
     Takes as input:
         classifier: the sklearn classifier to investigate
@@ -18,6 +19,9 @@ def GridSearch(classifier, paramdict, iters, X, y, X_reserve, y_reserve):
         kfcv: a pre-defined StratifiedKFold object
         X: the training data
         y: the target or labels
+        scoring: the type of scoring used to gauge performance. Defaults to
+        ROC-AuC
+        proba: to calculate probabilities, or not. Defaults to True
     What it does:
         acts as a convenent wrapper function for the scikit-learn randomized
         search cross validation method
@@ -48,10 +52,23 @@ def GridSearch(classifier, paramdict, iters, X, y, X_reserve, y_reserve):
             classifier.gamma = paramdict['gamma'].rvs()
         if 'colsample_bytree' in paramdict:
             classifier.colsample_bytree = paramdict['colsample_bytree'].rvs()
+        if 'intercept_scaling' in paramdict:
+            classifier.intercept_scaling = paramdict['intercept_scaling'].rvs()
+        if scoring == 'roc_auc':
+            scorer = roc_auc_score
+        elif scoring == 'f1':
+            scorer = f1_score
+        elif scoring == 'R2':
+            scorer = r2_score
         scores = []
         for fit, val in kfcv:
             classifier.fit(X.iloc[fit], y.iloc[fit])
-            scores.append(roc_auc_score(pd.concat([y.iloc[val], y_reserve]), classifier.predict_proba(pd.concat([X.iloc[val], X_reserve]))[:,1]))
+            if proba:
+                scores.append(scorer(y.iloc[val],
+                        classifier.predict_proba(X.iloc[val])[:,1]))
+            else:
+                scores.append(scorer(y.iloc[val],
+                        classifier.predict(X.iloc[val])))
         score = 1.*sum(scores)/len(scores)
         if score > best_score:
             print score
