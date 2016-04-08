@@ -26,10 +26,10 @@ X_fit, X_val, y_fit, y_val = train_test_split(X_train, y_train,
 #==========================Gradient Boost Classifier===========================
 
 clf = LogisticRegression(
-                C                       =       1,
-                intercept_scaling       =       1
+                C                       =       0.757031493720797,
+                intercept_scaling       =       0.18989143560912067
         )
-
+#0.609381720696
 
 clf.fit(X_fit, y_fit)
 print 'Fit to fitting data is completed'
