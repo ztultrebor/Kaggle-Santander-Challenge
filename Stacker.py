@@ -201,7 +201,7 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
         return estimates, predictions, weights, y_train_shuffled, params
 
 #===================================prep data==================================
-
+'''
 target_col = 'TARGET'
 id_col = 'ID'
 X_train = pd.read_csv('./EngineeredData/Xtrain.csv')
@@ -252,29 +252,28 @@ estimates.to_csv('./Level1Data/Xtrain.csv', index=False)
 pd.DataFrame({target_col:y_train}).to_csv('./Level1Data/ytrain.csv', index=False)
 predictions.to_csv('./Level1Data/Xtest.csv', index=False)
 pd.DataFrame({id_col:id_test}).to_csv('./Level1Data/idtest.csv', index=False)
-
+'''
 #================Level 1 Estimator: Logistic Regression========================
 
-#target_col = 'TARGET'
-#id_col = 'ID'
-#estimates = pd.read_csv('./Level1Data/Xtrain.csv')
-#y_train = pd.read_csv('./Level1Data/ytrain.csv')[target_col]
-#predictions = pd.read_csv('./Level1Data/Xtest.csv')
-#id_test = pd.read_csv('./Level1Data/idtest.csv')[id_col]
+target_col = 'TARGET'
+id_col = 'ID'
+estimates = pd.read_csv('./Level1Data/Xtrain.csv')
+y_train = pd.read_csv('./Level1Data/ytrain.csv')[target_col]
+predictions = pd.read_csv('./Level1Data/Xtest.csv')
+id_test = pd.read_csv('./Level1Data/idtest.csv')[id_col]
 np.random.seed(3)
 kfcv1 = StratifiedKFold(y_train, n_folds=5, shuffle=True)
-params = {
-            'C'                 :       scipy.stats.expon(0, 0.0000005),
-            'intercept_scaling' :       scipy.stats.expon(0, 0.01)
-            }
+estim_cols = estimates.columns
+ROCs = [roc_auc_score(y_train, estimates[col]) for col in estim_cols]
+
 l1Clf = LogisticRegression(max_iter=10000, tol=0.000001,
                             class_weight='balanced')
-estim_cols = estimates.columns
-zultz = zip(estim_cols, weights)
-zultz.sort(key=lambda z: -z[1])
+sorting_hat = zip(estim_cols,ROCs)
+sorting_hat.sort(key=lambda x: -x[1])
+ordered_cols = [s[0] for s in sorting_hat]
 master_cols = []
 top_score = 0
-for result, _ in zultz:
+for i, result in enumerate(ordered_cols):
     params = {
                 'C'                 :       scipy.stats.expon(0, 0.0000005),
                 'intercept_scaling' :       scipy.stats.expon(0, 0.01)
@@ -290,13 +289,74 @@ for result, _ in zultz:
             )
     if score > top_score:
         top_score = score
+        best_params = params
         master_cols.append(result)
+    print 'WIP: from %s estimates we choose %s' % (i+1, len(master_cols))
+best_estimator = set_params(l1Clf, best_params)
 print 'We decided upon %s XGB results' % len(master_cols)
+
+#================Level 1 Estimator: XGB========================
+'''
+target_col = 'TARGET'
+id_col = 'ID'
+estimates = pd.read_csv('./Level1Data/Xtrain.csv')
+y_train = pd.read_csv('./Level1Data/ytrain.csv')[target_col]
+predictions = pd.read_csv('./Level1Data/Xtest.csv')
+id_test = pd.read_csv('./Level1Data/idtest.csv')[id_col]
+np.random.seed(3)
+kfcv1 = StratifiedKFold(y_train, n_folds=5, shuffle=True)
+score = 0.840513226531
+nest = 154
+learning = 0.044485809252364054
+depth = 2
+sub = 0.6276496064148965
+csbt = 0.42368346812722996
+g = 0
+a = 0
+spw = 24.377958783463924
+mcw = 1.334711811795449
+base = 0.6879643409508887
+
+l1Clf = XGBClassifier()
+estim_cols = estimates.columns
+master_cols = []
+top_score = 0
+for i, result in enumerate(estim_cols):
+    params = {
+            'n_estimators'      :       scipy.stats.norm(nest, nest/3),
+            'learning_rate'     :       scipy.stats.norm(learning, learning/3),
+            'max_depth'         :       scipy.stats.norm(depth,depth/3.),
+            'subsample'         :       scipy.stats.norm(sub, sub/3),
+            #'colsample_bytree'  :       scipy.stats.norm(csbt, csbt/3),
+            'gamma'             :       scipy.stats.norm(g, g/3),
+            'reg_alpha'         :       scipy.stats.norm(a, a/3),
+            'scale_pos_weight'  :       scipy.stats.norm(spw, spw/3),
+            'min_child_weight'  :       scipy.stats.norm(mcw, mcw/3),
+            'base_score'        :       scipy.stats.beta(base/(1-base), 1)
+        }
+    estimator, params, score = generalized_CV(
+                    method        =       'GridSearch',
+                    classifier    =       l1Clf,
+                    paramdict     =       params,
+                    iters         =       25,
+                    folds         =       kfcv1,
+                    X_train       =       estimates[master_cols + [result]],
+                    y_train       =       y_train
+            )
+    if score > top_score:
+        top_score = score
+        best_params = params
+        master_cols.append(result)
+    print 'WIP: from %s estimates we choose %s' % (i+1, len(master_cols))
+best_estimator = set_params(l1Clf, best_params)
+print 'We decided upon %s XGB results' % len(master_cols)
+
+'''
 #==============================================================================
 
 print 'The Level1 training data ROC-AuC score is %s' % top_score
-estimator.fit(estimates[master_cols], y_train)
-stacked_prediction = estimator.predict_proba(predictions[master_cols])[:,1]
+best_estimator.fit(estimates[master_cols], y_train)
+stacked_prediction = best_estimator.predict_proba(predictions[master_cols])[:,1]
 submission = pd.DataFrame({'ID':id_test, 'TARGET':stacked_prediction})
 submission.to_csv('submission.csv', index=False)
 print 'Completed!'
