@@ -180,6 +180,11 @@ def crossify(X_train, y_train, X_test):
     X_test = pd.concat([X_test, X_test_crossed], axis=1)
     return X_train, X_test
 
+def zero_sum(train, test):
+    train['ZeroSum'] = (train==0).count(axis=1)
+    test['ZeroSum'] = (test==0).count(axis=1)
+    return train, test
+
 def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     '''
     Takes as input:
@@ -210,12 +215,10 @@ def acquire_data(train_file, test_file, target_col, id_col, verbose=False):
     X_train, X_test = zap_dependencies(X_train, X_test, verbose)
     if verbose:
         print X_train.shape, X_test.shape
-    #X_train, X_test = mediate(X_train, X_test)
-    #X_train, X_test = eigenstuff(X_train, X_test)
     #X_train, X_test = cull_features(X_train, y_train, X_test)
-    if verbose:
-        print X_train.shape, X_test.shape
-    #X_train, X_test = crossify(X_train, y_train, X_test)
+    #if verbose:
+    #    print X_train.shape, X_test.shape
+    X_train, X_test = zero_sum(X_train, X_test)
     if verbose:
         print X_train.shape, X_test.shape
     return X_train, y_train, X_test, id_test

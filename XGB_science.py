@@ -6,8 +6,7 @@ import numpy as np
 import pandas as pd
 import scipy
 from xgboost import XGBClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.cross_validation import StratifiedKFold
+from sklearn.cross_validation import StratifiedKFold, train_test_split
 from sklearn.metrics import roc_auc_score
 
 #==============================================================================
@@ -111,7 +110,7 @@ def shuffle_labels(y_train, folded):
 #==============================================================================
 
 def generalized_CV(method, classifier, paramdict, iters, folds,
-                    X_train, y_train, X_test=None):
+                    X_train, y_train, X_test=None, best_score=0):
     '''
     Takes as input:
         classifier: an estimator object (scikit-learn compatible)
@@ -155,12 +154,13 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
         - a pandas series contining the properly ordered training labels/target
         - a list of the hyperparameters for each individual estimator
     '''
-    best_score = 0
+    originals = classifier.get_params()
     weights = []
     paramlist = []
     y_train_shuffled = shuffle_labels(y_train, folds)
     estimates = pd.DataFrame()
     predictions = pd.DataFrame()
+    improved = False
     for _ in xrange(iters):
         esty = randomize_params(classifier, paramdict)
         training_probs = pd.Series()
@@ -176,6 +176,7 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
             if score > best_score:
                 best_score = score
                 best_params = esty.get_params()
+                improved = True
                 print score
                 print best_params
         elif method in ('Stack', 'Bag'):
@@ -189,15 +190,21 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
                                         ignore_index=True)
             params = classifier.get_params()
             paramlist.append(params)
-            weights.append((score-0.5)/(0.844-0.5))
+            if method == 'Bag':
+                weights.append((score-0.5)/(0.844-0.5))
             print score
             print params
     if method == 'GridSearch':
-        best_estimator = set_params(classifier, best_params)
-        # fit training data using best estimator
-        best_estimator.fit(X_train, y_train)
-        return best_estimator, best_params, best_score
-    elif method in ('Stack', 'Bag'):
+        if improved:
+            best_estimator = set_params(classifier, best_params)
+            # fit training data using best estimator
+            best_estimator.fit(X_train, y_train)
+            return best_estimator, best_params, best_score
+        else:
+            return set_params(classifier, originals), originals, best_score
+    elif method == 'Stack':
+        return estimates, predictions, y_train_shuffled, params
+    elif method == 'Bag':
         return estimates, predictions, weights, y_train_shuffled, params
 
 #===================================prep data==================================
@@ -209,21 +216,157 @@ y_train = pd.read_csv('./EngineeredData/ytrain.csv')[target_col]
 X_test = pd.read_csv('./EngineeredData/Xtest.csv')
 id_test = pd.read_csv('./EngineeredData/idtest.csv')[id_col]
 
-#================Level 0 Estimator: Gradient Boost Classifier==================
-
-np.random.seed(3)
+np.random.seed(42)
 kfcv0 = StratifiedKFold(y_train, n_folds=4, shuffle=True)
+#X_fit, X_val, y_fit, y_val = train_test_split(X_train, y_train,
+#                                    test_size=0.25, stratify=y_train)
+
+
+X_train = pd.read_csv('./Level1Data/Xtrain.csv')
+y_train = pd.read_csv('./Level1Data/ytrain.csv')[target_col]
+
+#=======================Initial Guess at Hyperparameters=======================
+
+Clf = XGBClassifier(        n_estimators        =       50,
+                            gamma               =       0,
+                            scale_pos_weight    =       10,
+                            subsample           =       0.8,
+                            colsample_bytree    =       0.8,
+                            learning_rate       =       0.1)
+
+#================Tuning Round 1: max_depth & min_child_weight==================
+print 'Grid Searching max_depth and min_child_weight'
+params = {
+            'max_depth'         :       scipy.stats.norm(6,2),
+            'min_child_weight'  :       scipy.stats.expon(0,1)
+            }
+estimator, parameters, score = generalized_CV(
+                        method                  =       'GridSearch',
+                        classifier              =       Clf,
+                        paramdict               =       params,
+                        iters                   =       25,
+                        folds                   =       kfcv0,
+                        X_train                 =       X_train,
+                        y_train                 =       y_train,
+                        X_test                  =       X_test
+            )
+Clf = estimator
+print 'Done with max_depth and min_child_weight'
+print Clf.get_params()
+#===========================Tuning Round 2: gamma==============================
+print 'Grid Searching gamma'
+params = {
+            'gamma'             :       scipy.stats.expon(0, 1)
+            }
+estimator, parameters, score = generalized_CV(
+                        method                  =       'GridSearch',
+                        classifier              =       Clf,
+                        paramdict               =       params,
+                        iters                   =       5,
+                        folds                   =       kfcv0,
+                        X_train                 =       X_train,
+                        y_train                 =       y_train,
+                        X_test                  =       X_test,
+                        best_score              =       score
+            )
+Clf = estimator
+print 'Done with gamma'
+print Clf.get_params()
+#================Tuning Round 3: subsample and colsample_bytree================
+print 'Grid Searching subsample and colsample_bytree'
+params = {
+            'subsample'         :       scipy.stats.beta(4,1),
+            'colsample_bytree'  :       scipy.stats.beta(4,1),
+            }
+estimator, parameters, score = generalized_CV(
+                        method                  =       'GridSearch',
+                        classifier              =       Clf,
+                        paramdict               =       params,
+                        iters                   =       25,
+                        folds                   =       kfcv0,
+                        X_train                 =       X_train,
+                        y_train                 =       y_train,
+                        X_test                  =       X_test,
+                        best_score              =       score
+            )
+Clf = estimator
+print 'Done with subsample and colsample_bytree'
+print Clf.get_params()
+#============================Tuning Round 4: alpha=============================
+print 'Grid Searching alpha'
+params = {
+            'reg_alpha'         :       scipy.stats.expon(0, 0.01)
+            }
+estimator, parameters, score = generalized_CV(
+                        method                  =       'GridSearch',
+                        classifier              =       Clf,
+                        paramdict               =       params,
+                        iters                   =       5,
+                        folds                   =       kfcv0,
+                        X_train                 =       X_train,
+                        y_train                 =       y_train,
+                        X_test                  =       X_test,
+                        best_score              =       score
+            )
+Clf = estimator
+print 'Done with alpha'
+print Clf.get_params()
+#==============Tuning Round 5: n_estimators and learning_rate==================
+print 'Grid Searching n_estimators and learning_rate'
+params = {
+            'n_estimators'      :       scipy.stats.expon(20, 30),
+            'learning_rate'     :       scipy.stats.expon(0, 0.03),
+            }
+estimator, parameters, score = generalized_CV(
+                        method                  =       'GridSearch',
+                        classifier              =       Clf,
+                        paramdict               =       params,
+                        iters                   =       25,
+                        folds                   =       kfcv0,
+                        X_train                 =       X_train,
+                        y_train                 =       y_train,
+                        X_test                  =       X_test,
+                        best_score              =       score
+            )
+Clf = estimator
+print 'Done with n_estimators and learning_rate'
+print Clf.get_params()
+#==============Tuning Round 5: base score and scale_pos_weight=================
+print 'Grid Searching base_score and scale_pos_weight'
+params = {
+            'base_score'        :       scipy.stats.beta(1,1),
+            'scale_pos_weight'  :       scipy.stats.expon(0, 10),
+            }
+estimator, parameters, score = generalized_CV(
+                        method                  =       'GridSearch',
+                        classifier              =       Clf,
+                        paramdict               =       params,
+                        iters                   =       25,
+                        folds                   =       kfcv0,
+                        X_train                 =       X_train,
+                        y_train                 =       y_train,
+                        X_test                  =       X_test,
+                        best_score              =       score
+            )
+Clf = estimator
+print 'Done with base_score and scale_pos_weight'
+print Clf.get_params()
+#==============================Eternal Tuning =================================
+
 score = 0.840590223128
-nest = 164
-learning = 0.0320999971643331
-depth = 6
-sub = 0.8622924469301847
-csbt = 0.6584220199507204
-g = 0.5182180124120709
-a = 0
-spw = 1.3490671869064994
-mcw = 0.08016798146134174
-base = 0.0854251661681438
+parameters = {'reg_alpha': 0, 'colsample_bytree': 0.6584220199507204, 'silent': True, 'colsample_bylevel': 1, 'scale_pos_weight': 1.3490671869064994, 'learning_rate': 0.03209999716433319, 'missing': None, 'max_delta_step': 0, 'nthread': -1, 'base_score': 0.0854251661681438, 'n_estimators': 164, 'subsample': 0.8622924469301847, 'reg_lambda': 1, 'seed': 0, 'min_child_weight': 0.08016798146134174, 'objective': 'binary:logistic', 'max_depth': 6, 'gamma': 0.5182180124120709}
+
+nest = parameters['n_estimators']
+learning = parameters['learning_rate']
+depth = parameters['max_depth']
+sub = parameters['subsample']
+csbt = parameters['colsample_bytree']
+g = parameters['gamma']
+a = parameters['reg_alpha']
+spw = parameters['scale_pos_weight']
+mcw = parameters['min_child_weight']
+base = parameters['base_score']
+
 params = {
             'n_estimators'      :       scipy.stats.norm(nest, nest/3),
             'learning_rate'     :       scipy.stats.norm(learning, learning/3),
@@ -236,67 +379,14 @@ params = {
             'min_child_weight'  :       scipy.stats.norm(mcw, mcw/3),
             'base_score'        :       scipy.stats.norm(base, base/3)
         }
-
-l0Clf = XGBClassifier()
-estimates, predictions, weights, y_train, parameters = generalized_CV(
-                        method                  =       'Stack',
-                        classifier              =       l0Clf,
+estimator, parameters, score = generalized_CV(
+                        method                  =       'GridSearch',
+                        classifier              =       Clf,
                         paramdict               =       params,
-                        iters                   =       50,
+                        iters                   =       100000000000,
                         folds                   =       kfcv0,
                         X_train                 =       X_train,
                         y_train                 =       y_train,
-                        X_test                  =       X_test
+                        X_test                  =       X_test,
+                        best_score              =       score
             )
-estimates.to_csv('./Level1Data/Xtrain.csv', index=False)
-pd.DataFrame({target_col:y_train}).to_csv('./Level1Data/ytrain.csv', index=False)
-predictions.to_csv('./Level1Data/Xtest.csv', index=False)
-pd.DataFrame({id_col:id_test}).to_csv('./Level1Data/idtest.csv', index=False)
-
-#================Level 1 Estimator: Logistic Regression========================
-
-#target_col = 'TARGET'
-#id_col = 'ID'
-#estimates = pd.read_csv('./Level1Data/Xtrain.csv')
-#y_train = pd.read_csv('./Level1Data/ytrain.csv')[target_col]
-#predictions = pd.read_csv('./Level1Data/Xtest.csv')
-#id_test = pd.read_csv('./Level1Data/idtest.csv')[id_col]
-np.random.seed(3)
-kfcv1 = StratifiedKFold(y_train, n_folds=5, shuffle=True)
-params = {
-            'C'                 :       scipy.stats.expon(0, 0.0000005),
-            'intercept_scaling' :       scipy.stats.expon(0, 0.01)
-            }
-l1Clf = LogisticRegression(max_iter=10000, tol=0.000001,
-                            class_weight='balanced')
-estim_cols = estimates.columns
-zultz = zip(estim_cols, weights)
-zultz.sort(key=lambda z: -z[1])
-master_cols = []
-top_score = 0
-for result, _ in zultz:
-    params = {
-                'C'                 :       scipy.stats.expon(0, 0.0000005),
-                'intercept_scaling' :       scipy.stats.expon(0, 0.01)
-                }
-    estimator, params, score = generalized_CV(
-                    method        =       'GridSearch',
-                    classifier    =       l1Clf,
-                    paramdict     =       params,
-                    iters         =       25,
-                    folds         =       kfcv1,
-                    X_train       =       estimates[master_cols + [result]],
-                    y_train       =       y_train
-            )
-    if score > top_score:
-        top_score = score
-        master_cols.append(result)
-print 'We decided upon %s XGB results' % len(master_cols)
-#==============================================================================
-
-print 'The Level1 training data ROC-AuC score is %s' % top_score
-estimator.fit(estimates[master_cols], y_train)
-stacked_prediction = estimator.predict_proba(predictions[master_cols])[:,1]
-submission = pd.DataFrame({'ID':id_test, 'TARGET':stacked_prediction})
-submission.to_csv('submission.csv', index=False)
-print 'Completed!'
