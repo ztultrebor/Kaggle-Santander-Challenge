@@ -19,11 +19,10 @@ def set_params(classifier, paramdict):
         paramdict: a dictionary keyed by hyperparameter names with random
         distribution objects as values
     What it does:
-        This function is required for grid search over XGB. There is apparently
-        some bug in xgbost that causes an error when you call its set_params()
-        method
+        Sets hyperparemeters of an estimator object. Checks to see if the
+        value is a RNG and behaves accordingly
     Returns:
-        - an estimator with hyperparemeters fixed
+        - an estimator with hyperparemeters updated
     '''
     for param in paramdict:
         if type(paramdict[param]) in (int, float, bool):
@@ -80,16 +79,7 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
         - the best estimator object
         - dictionary of hyperparemeters for the best estimator
         - the ROC-AuC score for the best estimator
-    Returns if method=='Stack':
-        - a pandas DataFrame containing cross-validation estimates of the
-        training labels; each column cotains the estimates for a particular
-        estimator
-        - a pandas DataFrame containing fully-trained predictions for the test
-        data; each column cotains the estimates for a particular estimator
-        column cotains the estimates for a particular estimator
-        - a pandas series contining the properly ordered training labels/target
-        - a list of the hyperparameters for each individual estimator
-    Returns if method=='Bag':
+    Returns if method is 'Stack' or 'Bag':
         - a pandas DataFrame containing cross-validation estimates of the
         training labels; each column cotains the estimates for a particular
         estimator
@@ -148,12 +138,27 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
 
 #===================================prep data==================================
 
+def engineered_data_prep(folder, ftrain, ftest, fy, fid, target_col, id_col):
+    '''
+    Takes as input:
+
+    What it does:
+        Reads data from csv files. Separates out training labels and test IDs.
+    Returns:
+        - a pandas DataFrame containing the training input data
+        - a pandas DataFrame containing the test input data
+        - a pandas DataFrame containing the training labels
+        - a pandas DataFrame containing the test IDs
+    '''
+    return (pd.read_csv('./'+ folder + '/' + ftrain),
+            pd.read_csv('./'+ folder + '/' + ftest),
+            pd.read_csv('./'+ folder + '/' + fy)[target_col],
+            pd.read_csv('./'+ folder + '/' + fid)[id_col])
+
+
 target_col = 'TARGET'
 id_col = 'ID'
-X_train = pd.read_csv('./EngineeredData/Xtrain.csv')
-y_train = pd.read_csv('./EngineeredData/ytrain.csv')[target_col]
-X_test = pd.read_csv('./EngineeredData/Xtest.csv')
-id_test = pd.read_csv('./EngineeredData/idtest.csv')[id_col]
+X_train, X_test , y_train, id_test = engineered_data_prep('EngineeredData', 'Xtrain.csv', 'Xtest.csv', 'ytrain.csv', 'idtest.csv', target_col, id_col)
 
 #================Level 0 Estimator: Gradient Boost Classifier==================
 
