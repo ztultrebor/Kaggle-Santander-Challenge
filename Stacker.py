@@ -159,20 +159,20 @@ id_test = pd.read_csv('./EngineeredData/idtest.csv')[id_col]
 
 np.random.seed(3)
 kfcv0 = StratifiedKFold(y_train, n_folds=4, shuffle=True)
-score = 0.840590223128
-nest = 164
-learning = 0.0320999971643331
-depth = 6
-sub = 0.8622924469301847
-csbt = 0.6584220199507204
-g = 0.5182180124120709
-a = 0
-spw = 1.3490671869064994
-mcw = 0.08016798146134174
-base = 0.0854251661681438
+a       =       0
+csbt    =       0.7874691933152562
+spw     =       5.39673009847897
+lr      =       0.040989631409769696
+base    =       0.9698413679536542
+nest    =       109
+sub     =       0.46667628427710284
+mcw     =       12.14694715535773
+depth   =       5
+g       =       0.0960752812134071
+
 params = {
             'n_estimators'      :       scipy.stats.norm(nest, nest/3),
-            'learning_rate'     :       scipy.stats.norm(learning, learning/3),
+            'learning_rate'     :       scipy.stats.norm(lr, lr/3),
             'max_depth'         :       scipy.stats.norm(depth,depth/3.),
             'subsample'         :       scipy.stats.norm(sub, sub/3),
             'colsample_bytree'  :       scipy.stats.norm(csbt, csbt/3),
@@ -180,7 +180,7 @@ params = {
             'reg_alpha'         :       scipy.stats.norm(a, a/3),
             'scale_pos_weight'  :       scipy.stats.norm(spw, spw/3),
             'min_child_weight'  :       scipy.stats.norm(mcw, mcw/3),
-            'base_score'        :       scipy.stats.norm(base, base/3)
+            'base_score'        :       scipy.stats.beta(base/(1-base), 1)
         }
 
 l0Clf = XGBClassifier()
