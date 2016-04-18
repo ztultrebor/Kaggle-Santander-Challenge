@@ -136,12 +136,18 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
     elif method in ('Stack', 'Bag'):
         return estimates, predictions, weights, y_train_shuffled, params
 
-#===================================prep data==================================
+#==============================================================================
 
 def engineered_data_prep(folder, ftrain, ftest, fy, fid, target_col, id_col):
     '''
     Takes as input:
-
+        folder: the name of the folder where the csv data is located
+        ftrain: the file name of the training data
+        ftest: the file name of the test data
+        fy: the file name of the training data labels
+        fid: the file name of the test data IDs
+        target_col: the name of the column in the fy file DataFrame
+        id_col: the name of the column in the fid file DataFrame
     What it does:
         Reads data from csv files. Separates out training labels and test IDs.
     Returns:
@@ -155,57 +161,113 @@ def engineered_data_prep(folder, ftrain, ftest, fy, fid, target_col, id_col):
             pd.read_csv('./'+ folder + '/' + fy)[target_col],
             pd.read_csv('./'+ folder + '/' + fid)[id_col])
 
+#==============================================================================
 
+def write(estimates, y_train, predictions, id_test, folder, ftrain, ftest, fy,
+                fid, target_col, id_col):
+    '''
+    Takes as input:
+        estimates: a pandas DataFrame containing the L1 training estimate data
+        y_train: a pandas DataFrame containing the training labels
+        predictions: a pandas DataFrame containing the L1 test prediction data
+        id_test: a pandas DataFrame containing the test IDs
+        folder: the name of the folder where the csv data is located
+        ftrain: the file name of the training data
+        ftest: the file name of the test data
+        fy: the file name of the training data labels
+        fid: the file name of the test data IDs
+        target_col: the name of the column in the fy file DataFrame
+        id_col: the name of the column in the fid file DataFrame
+    What it does:
+        Writes data to csv files, stored in a folder of choice with filenames
+        of choice
+    Returns:
+        - da nada
+    '''
+    estimates.to_csv('./' + folder + '/' + ftrain, index=False)
+    pd.DataFrame({target_col:y_train}).to_csv('./' + folder + '/' + fy,
+                index=False)
+    predictions.to_csv('./' + folder + '/' + ftest, index=False)
+    pd.DataFrame({id_col:id_test}).to_csv('./' + folder + '/' + fid,
+                index=False)
+
+#==============================================================================
+
+def L0_classification(Clf, params, X, y, test, folded, niters):
+    '''
+    Takes as input:
+        Clf: a scikit-learn-compatible classifier object
+        params: a dictionary of hyperparameters for the classifier
+        X: a pandas DataFrame containing the training data
+        y: a pandas DataFrame containing the training labels
+        test: a pandas DataFrame containing the test data
+        folded: a scikit-learn KFold cross validation object
+        niters: number of iterations/classifiers
+    What it does:
+        Acts as a wrapper for the generaized_CV function acting as a 'Stacker'.
+        This function basically prepares the randomized hyperparameter
+        dictionary
+    Returns:
+        - the resuts from generalized_CV 'Stack'
+    '''
+    depth = params['max_depth']
+    mcw = params['min_child_weight']
+    g = params['gamma']
+    sub = params['subsample']
+    csbt = params['colsample_bytree']
+    a = params['reg_alpha']
+    nest = params['n_estimators']
+    learning = params['learning_rate']
+    base = params['base_score']
+    spw = params['scale_pos_weight']
+    randoprams = {
+        'max_depth'         :       scipy.stats.norm(depth, depth/3.),
+        'min_child_weight'  :       scipy.stats.norm(mcw, mcw/3.),
+        'gamma'             :       scipy.stats.norm(g, g/3.),
+        'subsample'         :       scipy.stats.beta(3*sub/(1-sub),3),
+        'colsample_bytree'  :       scipy.stats.beta(3*csbt/(1-csbt),3),
+        'reg_alpha'         :       scipy.stats.norm(a, a/3.),
+        'n_estimators'      :       scipy.stats.norm(nest, nest/3.),
+        'learning_rate'     :       scipy.stats.norm(learning, learning/3.),
+        'base_score'        :       scipy.stats.beta(3*base/(1-base),3),
+        'scale_pos_weight'  :       scipy.stats.norm(spw, spw/3.)
+                }
+    return generalized_CV(
+                method                  =       'Stack'
+                classifier              =       Clf,
+                paramdict               =       randoprams,
+                iters                   =       niters,
+                folds                   =       folded,
+                X_train                 =       X,
+                y_train                 =       y,
+                X_test                  =       test
+                )
+                
+#================Level 1 Estimator: Logistic Regression========================
 target_col = 'TARGET'
 id_col = 'ID'
-X_train, X_test , y_train, id_test = engineered_data_prep('EngineeredData', 'Xtrain.csv', 'Xtest.csv', 'ytrain.csv', 'idtest.csv', target_col, id_col)
-
-#================Level 0 Estimator: Gradient Boost Classifier==================
-
+X_train, X_test , y_train, id_test = engineered_data_prep('EngineeredData',
+                        'Xtrain.csv', 'Xtest.csv', 'ytrain.csv', 'idtest.csv',
+                        target_col, id_col)
 np.random.seed(3)
-kfcv0 = StratifiedKFold(y_train, n_folds=4, shuffle=True)
-a       =       0
-csbt    =       0.7874691933152562
-spw     =       5.39673009847897
-lr      =       0.040989631409769696
-base    =       0.9698413679536542
-nest    =       109
-sub     =       0.46667628427710284
-mcw     =       12.14694715535773
-depth   =       5
-g       =       0.0960752812134071
-
-params = {
-            'n_estimators'      :       scipy.stats.norm(nest, nest/3),
-            'learning_rate'     :       scipy.stats.norm(lr, lr/3),
-            'max_depth'         :       scipy.stats.norm(depth,depth/3.),
-            'subsample'         :       scipy.stats.norm(sub, sub/3),
-            'colsample_bytree'  :       scipy.stats.norm(csbt, csbt/3),
-            'gamma'             :       scipy.stats.norm(g, g/3),
-            'reg_alpha'         :       scipy.stats.norm(a, a/3),
-            'scale_pos_weight'  :       scipy.stats.norm(spw, spw/3),
-            'min_child_weight'  :       scipy.stats.norm(mcw, mcw/3),
-            'base_score'        :       scipy.stats.beta(base/(1-base), 1)
-        }
-
-l0Clf = XGBClassifier()
-estimates, predictions, weights, y_train, parameters = generalized_CV(
-                        method                  =       'Stack',
-                        classifier              =       l0Clf,
-                        paramdict               =       params,
-                        iters                   =       50,
-                        folds                   =       kfcv0,
-                        X_train                 =       X_train,
-                        y_train                 =       y_train,
-                        X_test                  =       X_test
-            )
-estimates.to_csv('./Level1Data/Xtrain.csv', index=False)
-pd.DataFrame({target_col:y_train}).to_csv('./Level1Data/ytrain.csv', index=False)
-predictions.to_csv('./Level1Data/Xtest.csv', index=False)
-pd.DataFrame({id_col:id_test}).to_csv('./Level1Data/idtest.csv', index=False)
-
-#================Level 1 Estimator: Logistic Regression========================
-
+kfcv = StratifiedKFold(y_train, n_folds=4, shuffle=True)
+golden_params = {
+            'n_estimators'      :       109,
+            'learning_rate'     :       0.040989631409769696,
+            'max_depth'         :       5,
+            'subsample'         :       0.46667628427710284,
+            'colsample_bytree'  :       0.7874691933152562,
+            'gamma'             :       0.0960752812134071,
+            'reg_alpha'         :       0,
+            'scale_pos_weight'  :       5.39673009847897,
+            'min_child_weight'  :       12.14694715535773,
+            'base_score'        :       0.9698413679536542
+            }
+estimates, predictions, _, _, _ = L0_classification(XGBClassifier(),
+                                            golden_params, X_train, y_train,
+                                            X_test, kfcv, 10)
+write(estimates, y_train, predictions, id_test, 'Level1Data', 'Xtrain.csv',
+            'Xtest.csv', 'ytrain.csv', 'idtest.csv', target_col, id_col)
 #target_col = 'TARGET'
 #id_col = 'ID'
 #estimates = pd.read_csv('./Level1Data/Xtrain.csv')
