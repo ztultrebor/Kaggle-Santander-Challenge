@@ -25,14 +25,15 @@ def set_params(classifier, paramdict):
         - an estimator with hyperparemeters updated
     '''
     for param in paramdict:
-        if type(paramdict[param]) in (int, float, bool, str):
-            setattr(classifier, param, paramdict[param])
-        else:
+        if (type(paramdict[param]) is
+                    scipy.stats._distn_infrastructure.rv_frozen):
             v = paramdict[param].rvs()
             if param in ('max_depth', 'min_samples_leaf', 'n_estimators'):
                 setattr(classifier, param, int(v))
             else:
                 setattr(classifier, param, v)
+        else:
+            setattr(classifier, param, paramdict[param])
     return classifier
 
 #==============================================================================
@@ -338,7 +339,7 @@ estimates, predictions, _, shuffled_y, _ = generalized_CV('Stack', l0Clf,
 kfcv1 = StratifiedKFold(shuffled_y, n_folds=5, shuffle=True)
 new_estimates, new_predictions, _, _, _ = L0_classification(l0Clf,
                                             golden_params, X_train, y_train,
-                                            X_test, kfcv, 10)
+                                            X_test, kfcv, 1)
 estimates = pd.concat([estimates, new_estimates], axis=1, ignore_index=True)
 predictions = pd.concat([predictions, new_predictions], axis=1,
                         ignore_index=True)
