@@ -193,6 +193,18 @@ def write(estimates, y_train, predictions, id_test, folder, ftrain, ftest, fy,
 
 #==============================================================================
 
+def prep_submission(best_estimator, estimates, master_cols, y_train,
+                    predictions, id_test, fsubmission, target_col, id_col,
+                    top_score):
+    print 'The Level1 training data ROC-AuC score is %s' % top_score
+    best_estimator.fit(estimates[master_cols], y_train)
+    stacked_prediction = best_estimator.predict_proba(
+                            predictions[master_cols])[:,1]
+    submission = pd.DataFrame({id_col:id_test, target_col:stacked_prediction})
+    submission.to_csv(fsubmission, index=False)
+
+#==============================================================================
+
 def L0_classification(Clf, params, X, y, test, folded, niters):
     '''
     Takes as input:
@@ -233,7 +245,7 @@ def L0_classification(Clf, params, X, y, test, folded, niters):
         'scale_pos_weight'  :       scipy.stats.norm(spw, spw/3.)
                 }
     return generalized_CV(
-                method                  =       'Stack'
+                method                  =       'Stack',
                 classifier              =       Clf,
                 paramdict               =       randoprams,
                 iters                   =       niters,
@@ -243,6 +255,55 @@ def L0_classification(Clf, params, X, y, test, folded, niters):
                 X_test                  =       test
                 )
 
+#==============================================================================
+
+def L1_aggregation(Clf, params, estimates, y_train, predictions, folded,
+                    niters, top_score=0):
+    '''
+    Takes as input:
+        Clf: a scikit-learn-compatible classifier object
+        params: a dictionary of hyperparameters for the classifier
+        estimates: a pandas DataFrame containing the L1 training estimate data
+        y_train: a pandas DataFrame containing the training labels
+        predictions: a pandas DataFrame containing the L1 test prediction data
+        folded: a scikit-learn KFold cross validation object
+        niters: number of iterations/classifiers
+        top_score: the best ROC-AuC score to date
+    What it does:
+        Sorts the L0 estimates in decreasing ROC-AuC order. Aggregates the
+        estimates, one-by-one, using logistic regression. Identifies the best
+        choice of estimators, and the best choice of logit hyperparameters
+    Returns:
+        - the resuts from generalized_CV 'Stack'
+    '''
+    estim_cols = estimates.columns
+    ROCs = [roc_auc_score(y_train, estimates[col]) for col in estim_cols]
+    l1Clf = LogisticRegression(max_iter=10000, tol=0.000001,
+                                class_weight='balanced')
+    sorting_hat = zip(estim_cols, ROCs)
+    sorting_hat.sort(key=lambda x: -x[1])
+    ordered_cols = [s[0] for s in sorting_hat]
+    master_cols = []
+    for i, result in enumerate(ordered_cols):
+        _, _, score = generalized_CV(
+                        method        =       'GridSearch',
+                        classifier    =       Clf,
+                        paramdict     =       params,
+                        iters         =       niters,
+                        folds         =       folded,
+                        X_train       =       estimates[master_cols + [result]],
+                        y_train       =       y_train
+                )
+        if score > top_score:
+            top_score = score
+            best_params = params
+            master_cols.append(result)
+        print 'WIP: from %s estimates we choose %s' % (i+1, len(master_cols))
+    best_estimator = set_params(l1Clf, best_params)
+    print 'We decided upon %s XGB results' % len(master_cols)
+    return best_estimator, master_cols, top_score
+
+
 #================Level 1 Estimator: Logistic Regression========================
 target_col = 'TARGET'
 id_col = 'ID'
@@ -251,6 +312,10 @@ X_train, X_test , y_train, id_test = engineered_data_prep('EngineeredData',
                         target_col, id_col)
 np.random.seed(3)
 kfcv = StratifiedKFold(y_train, n_folds=4, shuffle=True)
+l0Clf = XGBClassifier()
+l1Clf = LogisticRegression(max_iter=10000, tol=0.000001,
+                            class_weight='balanced')
+top_score = 0
 golden_params = {
             'n_estimators'      :       109,
             'learning_rate'     :       0.040989631409769696,
@@ -263,10 +328,15 @@ golden_params = {
             'min_child_weight'  :       12.14694715535773,
             'base_score'        :       0.9698413679536542
             }
-estimates, predictions, _, _, _ = generalized_CV(XGBClassifier(),
+L1_params = {
+            'C'                 :       scipy.stats.expon(0, 0.0000005),
+            'intercept_scaling' :       scipy.stats.expon(0, 0.01)
+            }
+estimates, predictions, _, shuffled_y, _ = generalized_CV(l0Clf,
                                             golden_params, X_train, y_train,
                                             X_test, kfcv, 1)
-new_estimates, new_predictions, _, _, _ = L0_classification(XGBClassifier(),
+kfcv1 = StratifiedKFold(shuffled_y, n_folds=5, shuffle=True)
+new_estimates, new_predictions, _, _, _ = L0_classification(l0Clf,
                                             golden_params, X_train, y_train,
                                             X_test, kfcv, 10)
 estimates = pd.concat([estimates, new_estimates], axis=1, ignore_index=True)
@@ -274,51 +344,9 @@ predictions = pd.concat([predictions, new_predictions], axis=1,
                         ignore_index=True)
 write(estimates, y_train, predictions, id_test, 'Level1Data', 'Xtrain.csv',
             'Xtest.csv', 'ytrain.csv', 'idtest.csv', target_col, id_col)
-#target_col = 'TARGET'
-#id_col = 'ID'
-#estimates = pd.read_csv('./Level1Data/Xtrain.csv')
-#y_train = pd.read_csv('./Level1Data/ytrain.csv')[target_col]
-#predictions = pd.read_csv('./Level1Data/Xtest.csv')
-#id_test = pd.read_csv('./Level1Data/idtest.csv')[id_col]
-np.random.seed(3)
-kfcv1 = StratifiedKFold(y_train, n_folds=5, shuffle=True)
-estim_cols = estimates.columns
-ROCs = [roc_auc_score(y_train, estimates[col]) for col in estim_cols]
-
-l1Clf = LogisticRegression(max_iter=10000, tol=0.000001,
-                            class_weight='balanced')
-sorting_hat = zip(estim_cols,ROCs)
-sorting_hat.sort(key=lambda x: -x[1])
-ordered_cols = [s[0] for s in sorting_hat]
-master_cols = []
-top_score = 0
-for i, result in enumerate(ordered_cols):
-    params = {
-                'C'                 :       scipy.stats.expon(0, 0.0000005),
-                'intercept_scaling' :       scipy.stats.expon(0, 0.01)
-                }
-    estimator, params, score = generalized_CV(
-                    method        =       'GridSearch',
-                    classifier    =       l1Clf,
-                    paramdict     =       params,
-                    iters         =       25,
-                    folds         =       kfcv1,
-                    X_train       =       estimates[master_cols + [result]],
-                    y_train       =       y_train
-            )
-    if score > top_score:
-        top_score = score
-        best_params = params
-        master_cols.append(result)
-    print 'WIP: from %s estimates we choose %s' % (i+1, len(master_cols))
-best_estimator = set_params(l1Clf, best_params)
-print 'We decided upon %s XGB results' % len(master_cols)
-
-#==============================================================================
-
-print 'The Level1 training data ROC-AuC score is %s' % top_score
-best_estimator.fit(estimates[master_cols], y_train)
-stacked_prediction = best_estimator.predict_proba(predictions[master_cols])[:,1]
-submission = pd.DataFrame({'ID':id_test, 'TARGET':stacked_prediction})
-submission.to_csv('submission.csv', index=False)
-print 'Completed!'
+best_estimator, master_cols, top_score = L1_aggregation(l1Clf, L1_params,
+                                            estimates, shuffled_y, predictions,
+                                            kfcv1, 25, top_score)
+prep_submission(best_estimator, estimates, master_cols, shuffled_y,
+                    predictions, id_test, 'submission.csv', target_col, id_col,
+                    top_score)
