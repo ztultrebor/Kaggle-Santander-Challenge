@@ -59,15 +59,15 @@ def generalized_CV(method, classifier, paramdict, iters, folds,
                     X_train, y_train, X_test=None):
     '''
     Takes as input:
+        method: tells the function how to act: should it perform Grid Search,
+        or should it stack or bag?
         classifier: an estimator object (scikit-learn compatible)
         paramdict: a dictionary keyed by hyperparameter names with random
         distribution objects as values
-        folds: a scikit-learn KFold cross validation object
         iters: number of estimators to iterate over
+        folds: a scikit-learn KFold cross validation object
         X_train: a pandas DataFrame containing the training data
         y_train: a pandas series containing the target/labels
-        method: tells the function how to act: should it perform Grid Search,
-        or should it stack or bag?
     What it does:
         Iterates through a sequence of estimators with randomly selected
         hyperparameters. If method=='GridSearch', then it finds the best
@@ -332,9 +332,9 @@ L1_params = {
             'C'                 :       scipy.stats.expon(0, 0.0000005),
             'intercept_scaling' :       scipy.stats.expon(0, 0.01)
             }
-estimates, predictions, _, shuffled_y, _ = generalized_CV(l0Clf,
-                                            golden_params, X_train, y_train,
-                                            X_test, kfcv, 1)
+estimates, predictions, _, shuffled_y, _ = generalized_CV('Stack', l0Clf,
+                                            golden_params, 1, kfcv, X_train,
+                                            y_train, X_test)
 kfcv1 = StratifiedKFold(shuffled_y, n_folds=5, shuffle=True)
 new_estimates, new_predictions, _, _, _ = L0_classification(l0Clf,
                                             golden_params, X_train, y_train,
