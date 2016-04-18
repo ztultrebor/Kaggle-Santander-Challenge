@@ -204,7 +204,7 @@ def L0_classification(Clf, params, X, y, test, folded, niters):
         folded: a scikit-learn KFold cross validation object
         niters: number of iterations/classifiers
     What it does:
-        Acts as a wrapper for the generaized_CV function acting as a 'Stacker'.
+        Acts as a wrapper for the generalized_CV function acting as a 'Stacker'.
         This function basically prepares the randomized hyperparameter
         dictionary
     Returns:
@@ -242,7 +242,7 @@ def L0_classification(Clf, params, X, y, test, folded, niters):
                 y_train                 =       y,
                 X_test                  =       test
                 )
-                
+
 #================Level 1 Estimator: Logistic Regression========================
 target_col = 'TARGET'
 id_col = 'ID'
@@ -263,9 +263,15 @@ golden_params = {
             'min_child_weight'  :       12.14694715535773,
             'base_score'        :       0.9698413679536542
             }
-estimates, predictions, _, _, _ = L0_classification(XGBClassifier(),
+estimates, predictions, _, _, _ = generalized_CV(XGBClassifier(),
+                                            golden_params, X_train, y_train,
+                                            X_test, kfcv, 1)
+new_estimates, new_predictions, _, _, _ = L0_classification(XGBClassifier(),
                                             golden_params, X_train, y_train,
                                             X_test, kfcv, 10)
+estimates = pd.concat([estimates, new_estimates], axis=1, ignore_index=True)
+predictions = pd.concat([predictions, new_predictions], axis=1,
+                        ignore_index=True)
 write(estimates, y_train, predictions, id_test, 'Level1Data', 'Xtrain.csv',
             'Xtest.csv', 'ytrain.csv', 'idtest.csv', target_col, id_col)
 #target_col = 'TARGET'
