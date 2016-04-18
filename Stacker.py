@@ -337,17 +337,21 @@ estimates, predictions, _, shuffled_y, _ = generalized_CV('Stack', l0Clf,
                                             golden_params, 1, kfcv, X_train,
                                             y_train, X_test)
 kfcv1 = StratifiedKFold(shuffled_y, n_folds=5, shuffle=True)
-new_estimates, new_predictions, _, _, _ = L0_classification(l0Clf,
-                                            golden_params, X_train, y_train,
-                                            X_test, kfcv, 1)
-estimates = pd.concat([estimates, new_estimates], axis=1, ignore_index=True)
-predictions = pd.concat([predictions, new_predictions], axis=1,
-                        ignore_index=True)
-write(estimates, y_train, predictions, id_test, 'Level1Data', 'Xtrain.csv',
-            'Xtest.csv', 'ytrain.csv', 'idtest.csv', target_col, id_col)
-best_estimator, master_cols, top_score = L1_aggregation(l1Clf, L1_params,
-                                            estimates, shuffled_y, predictions,
-                                            kfcv1, 25, top_score)
-prep_submission(best_estimator, estimates, master_cols, shuffled_y,
-                    predictions, id_test, 'submission.csv', target_col, id_col,
-                    top_score)
+while True:
+    new_estimates, new_predictions, _, _, _ = L0_classification(l0Clf,
+                                                golden_params, X_train, y_train,
+                                                X_test, kfcv, 10)
+    estimates = pd.concat([estimates, new_estimates], axis=1, ignore_index=True)
+    predictions = pd.concat([predictions, new_predictions], axis=1,
+                            ignore_index=True)
+    write(estimates, y_train, predictions, id_test, 'Level1Data', 'Xtrain.csv',
+                'Xtest.csv', 'ytrain.csv', 'idtest.csv', target_col, id_col)
+    best_estimator, master_cols, score = L1_aggregation(l1Clf, L1_params,
+                                                estimates, shuffled_y,
+                                                predictions,
+                                                kfcv1, 25, top_score)
+    if score > top_score:
+        prep_submission(best_estimator, estimates, master_cols, shuffled_y,
+                        predictions, id_test, 'submission.csv', target_col,
+                        id_col, score)
+        top_score = score
