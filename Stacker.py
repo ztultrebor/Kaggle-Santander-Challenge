@@ -25,7 +25,7 @@ def set_params(classifier, paramdict):
         - an estimator with hyperparemeters updated
     '''
     for param in paramdict:
-        if type(paramdict[param]) in (int, float, bool):
+        if type(paramdict[param]) in (int, float, bool, str):
             setattr(classifier, param, paramdict[param])
         else:
             v = paramdict[param].rvs()
