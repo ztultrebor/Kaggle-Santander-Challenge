@@ -269,7 +269,6 @@ def L1_aggregation(Clf, params, estimates, y_train, predictions, folded,
         predictions: a pandas DataFrame containing the L1 test prediction data
         folded: a scikit-learn KFold cross validation object
         niters: number of iterations/classifiers
-        top_score: the best ROC-AuC score to date
     What it does:
         Sorts the L0 estimates in decreasing ROC-AuC order. Aggregates the
         estimates, one-by-one, using logistic regression. Identifies the best
@@ -350,7 +349,7 @@ while True:
     best_estimator, master_cols, score = L1_aggregation(l1Clf, L1_params,
                                                 estimates, shuffled_y,
                                                 predictions,
-                                                kfcv1, 25, top_score)
+                                                kfcv1, 25)
     if score > record_score:
         prep_submission(best_estimator, estimates, master_cols, shuffled_y,
                         predictions, id_test, 'submission.csv', target_col,
