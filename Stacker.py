@@ -259,7 +259,7 @@ def L0_classification(Clf, params, X, y, test, folded, niters):
 #==============================================================================
 
 def L1_aggregation(Clf, params, estimates, y_train, predictions, folded,
-                    niters, top_score=0):
+                    niters):
     '''
     Takes as input:
         Clf: a scikit-learn-compatible classifier object
@@ -285,6 +285,7 @@ def L1_aggregation(Clf, params, estimates, y_train, predictions, folded,
     sorting_hat.sort(key=lambda x: -x[1])
     ordered_cols = [s[0] for s in sorting_hat]
     master_cols = []
+    top_score = 0
     for i, result in enumerate(ordered_cols):
         _, _, score = generalized_CV(
                         method        =       'GridSearch',
@@ -316,7 +317,7 @@ kfcv = StratifiedKFold(y_train, n_folds=4, shuffle=True)
 l0Clf = XGBClassifier()
 l1Clf = LogisticRegression(max_iter=10000, tol=0.000001,
                             class_weight='balanced')
-top_score = 0
+record_score = 0
 golden_params = {
             'n_estimators'      :       109,
             'learning_rate'     :       0.040989631409769696,
@@ -350,8 +351,8 @@ while True:
                                                 estimates, shuffled_y,
                                                 predictions,
                                                 kfcv1, 25, top_score)
-    if score > top_score:
+    if score > record_score:
         prep_submission(best_estimator, estimates, master_cols, shuffled_y,
                         predictions, id_test, 'submission.csv', target_col,
                         id_col, score)
-        top_score = score
+        record_score = score
