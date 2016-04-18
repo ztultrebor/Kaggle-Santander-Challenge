@@ -235,15 +235,15 @@ def L0_classification(Clf, params, X, y, test, folded, niters):
     spw = params['scale_pos_weight']
     randoprams = {
         'max_depth'         :       scipy.stats.norm(depth, depth/3.),
-        'min_child_weight'  :       scipy.stats.norm(mcw, mcw/3.),
-        'gamma'             :       scipy.stats.norm(g, g/3.),
-        'subsample'         :       scipy.stats.beta(3*sub/(1-sub),3),
-        'colsample_bytree'  :       scipy.stats.beta(3*csbt/(1-csbt),3),
-        'reg_alpha'         :       scipy.stats.norm(a, a/3.),
-        'n_estimators'      :       scipy.stats.norm(nest, nest/3.),
-        'learning_rate'     :       scipy.stats.norm(learning, learning/3.),
-        'base_score'        :       scipy.stats.beta(3*base/(1-base),3),
-        'scale_pos_weight'  :       scipy.stats.norm(spw, spw/3.)
+        'min_child_weight'  :       scipy.stats.exp(0, mcw),
+        'gamma'             :       scipy.stats.exp(0, g),
+        'subsample'         :       scipy.stats.beta(sub/(1-sub), 1),
+        'colsample_bytree'  :       scipy.stats.beta(csbt/(1-csbt), 1),
+        'reg_alpha'         :       scipy.stats.esp(0, a),
+        'n_estimators'      :       scipy.stats.exp(0, nest),
+        'learning_rate'     :       scipy.stats.exp(0, learning),
+        'base_score'        :       scipy.stats.beta(base/(1-base), 1),
+        'scale_pos_weight'  :       scipy.stats.exp(0, spw)
                 }
     return generalized_CV(
                 method                  =       'Stack',
